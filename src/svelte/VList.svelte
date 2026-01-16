@@ -8,6 +8,7 @@
   let {
     data,
     getKey,
+    getContentVersion,
     bufferSize,
     itemSize,
     shift,
@@ -74,6 +75,7 @@
     {data}
     {children}
     {getKey}
+    {getContentVersion}
     {bufferSize}
     {itemSize}
     {shift}

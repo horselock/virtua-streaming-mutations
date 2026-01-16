@@ -25,6 +25,7 @@
   let {
     data,
     getKey = defaultGetKey,
+    getContentVersion,
     as = "div",
     item: itemAs,
     scrollRef,
@@ -87,6 +88,36 @@
     return arr;
   });
 
+  const contentVersions = new Map<number, any>();
+
+  let getItemWithVersion = $derived.by(() => {
+    if (!getContentVersion) {
+      return (index: number) => data[index]!;
+    }
+
+    const changedIndexes = new Set<number>();
+    for (const index of indexes) {
+      const item = data[index];
+      if (!item) continue;
+
+      const currentVersion = getContentVersion(item, index);
+      const prevVersion = contentVersions.get(index);
+
+      if (prevVersion !== undefined && prevVersion !== currentVersion) {
+        changedIndexes.add(index);
+      }
+      contentVersions.set(index, currentVersion);
+    }
+
+    return (index: number) => {
+      const item = data[index]!;
+      if (changedIndexes.has(index)) {
+        return Array.isArray(item) ? [...item] : { ...item as object };
+      }
+      return item;
+    };
+  });
+
   onMount(() => {
     const container = containerRef!;
     const assignRef = (scrollable: HTMLElement) => {
@@ -111,6 +142,14 @@
   $effect.pre(() => {
     if (data.length !== store.$getItemsLength()) {
       store.$update(ACTION_ITEMS_LENGTH_CHANGE, [data.length, shift]);
+
+      if (getContentVersion) {
+        for (const index of contentVersions.keys()) {
+          if (index >= data.length) {
+            contentVersions.delete(index);
+          }
+        }
+      }
     }
   });
 
@@ -169,7 +208,7 @@
 -->
 <svelte:element this={as} bind:this={containerRef} style={containerStyle}>
   {#each indexes as index (getKey(data[index]!, index))}
-    {@const item = data[index]!}
+    {@const item = getItemWithVersion(index)}
     <ListItem
       {children}
       {item}

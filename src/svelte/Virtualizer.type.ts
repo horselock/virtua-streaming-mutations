@@ -20,6 +20,12 @@ export interface VirtualizerProps<T> {
    */
   getKey?: (data: T, index: number) => string | number;
   /**
+   * Function that returns a content version/hash for an item. When this value changes, the item will re-render without remounting.
+   * This is useful for streaming content where the item object is mutated in place.
+   * @example (message) => message.content?.length || 0
+   */
+  getContentVersion?: (data: T, index: number) => any;
+  /**
    * Component or element type for container element.
    * @defaultValue "div"
    */

@@ -96,7 +96,10 @@
       return (index: number) => data[index]!;
     }
 
-    void contentTrigger;
+    const trigger = contentTrigger;
+    if (import.meta.env.DEV && trigger !== undefined) {
+      console.log('[Virtualizer] contentTrigger changed:', trigger);
+    }
 
     const changedIndexes = new Set<number>();
     for (const index of indexes) {

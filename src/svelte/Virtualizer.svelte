@@ -96,7 +96,7 @@
       return (index: number) => data[index]!;
     }
 
-    contentTrigger;
+    void contentTrigger;
 
     const changedIndexes = new Set<number>();
     for (const index of indexes) {

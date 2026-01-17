@@ -26,6 +26,7 @@
     data,
     getKey = defaultGetKey,
     getContentVersion,
+    contentTrigger,
     as = "div",
     item: itemAs,
     scrollRef,
@@ -94,6 +95,8 @@
     if (!getContentVersion) {
       return (index: number) => data[index]!;
     }
+
+    contentTrigger;
 
     const changedIndexes = new Set<number>();
     for (const index of indexes) {

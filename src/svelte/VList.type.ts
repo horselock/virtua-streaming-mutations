@@ -12,6 +12,8 @@ export interface VListProps<T>
       VirtualizerProps<T>,
       | "data"
       | "getKey"
+      | "getContentVersion"
+      | "contentTrigger"
       | "bufferSize"
       | "itemSize"
       | "shift"

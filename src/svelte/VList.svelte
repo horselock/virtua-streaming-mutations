@@ -9,6 +9,7 @@
     data,
     getKey,
     getContentVersion,
+    contentTrigger,
     bufferSize,
     itemSize,
     shift,
@@ -76,6 +77,7 @@
     {children}
     {getKey}
     {getContentVersion}
+    {contentTrigger}
     {bufferSize}
     {itemSize}
     {shift}

@@ -26,6 +26,10 @@ export interface VirtualizerProps<T> {
    */
   getContentVersion?: (data: T, index: number) => any;
   /**
+   * Optional trigger that causes getContentVersion to be re-evaluated when changed.
+   */
+  contentTrigger?: any;
+  /**
    * Component or element type for container element.
    * @defaultValue "div"
    */

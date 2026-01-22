@@ -40,7 +40,6 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "prepare": "rollup -c",
     "build": "rollup -c",
     "tsc": "tsc -p . --noEmit",
     "test": "vitest run --project=unit --project=react --project=vue --project=solid",

@@ -349,14 +349,9 @@ export const createVirtualStore = (
                     // https://github.com/inokawa/virtua/issues/758
                     index < _frozenRange[0]
                   : // Otherwise we should maintain visible position
-                    getItemOffset(
-                      index +
-                        // https://github.com/inokawa/virtua/issues/385
-                        (_scrollDirection === SCROLL_IDLE &&
-                        _scrollMode === SCROLL_BY_NATIVE
-                          ? 1
-                          : 0)
-                    ) < getRelativeScrollOffset())
+                    // Only apply jump if item is COMPLETELY above viewport (not just its top)
+                    // This prevents jump when a partially-visible item at bottom grows
+                    getItemOffset(index) + getItemSize(index) < getRelativeScrollOffset())
               ) {
                 acc += size - getItemSize(index);
               }

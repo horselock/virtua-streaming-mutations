@@ -350,8 +350,9 @@ export const createVirtualStore = (
                     index < _frozenRange[0]
                   : // Otherwise we should maintain visible position
                     // Only apply jump if item is COMPLETELY above viewport (not just its top)
-                    // This prevents jump when a partially-visible item at bottom grows
-                    getItemOffset(index) + getItemSize(index) < getRelativeScrollOffset())
+                    // Use new size (not cached) so a growing item that will extend into
+                    // the viewport after resize doesn't trigger a jump
+                    getItemOffset(index) + max(size, getItemSize(index)) < getRelativeScrollOffset())
               ) {
                 acc += size - getItemSize(index);
               }

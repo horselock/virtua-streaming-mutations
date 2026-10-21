@@ -170,6 +170,14 @@ const createScrollObserver = (
     cancelScheduledScroll && cancelScheduledScroll();
   };
   const onKeyDown = (e: Event) => {
+    const target = e.target;
+    // Keys typed into a field move its caret or value, not the viewport.
+    if (
+      target instanceof Element &&
+      target.closest("input, textarea, select, [contenteditable]")
+    ) {
+      return;
+    }
     if (SCROLL_KEYS.has((e as KeyboardEvent).key)) {
       cancelScheduledScroll && cancelScheduledScroll();
     }

@@ -63,7 +63,11 @@ const createScrollObserver = (
     shift: boolean,
     isMomentumScrolling: boolean
   ) => void,
-  getStartOffset?: () => number
+  getStartOffset?: () => number,
+  // A scroll the user starts takes over from a scheduled one. Without this, a scheduled scroll
+  // re-applies its target on every item resize until 150ms pass without one, so while items keep
+  // growing (a streamed message) it pulls the user back to its target for as long as they grow.
+  cancelScheduledScroll?: () => void
 ) => {
   const now = Date.now;
 
@@ -105,6 +109,9 @@ const createScrollObserver = (
   // Infer scroll state also from wheel events
   // Sometimes scroll events do not fire when frame dropped even if the visual have been already scrolled
   const onWheel = ((e: WheelEvent) => {
+    if (!e.ctrlKey) {
+      cancelScheduledScroll && cancelScheduledScroll();
+    }
     if (
       wheeling ||
       // Scroll start should be detected with scroll event
@@ -130,6 +137,7 @@ const createScrollObserver = (
   }) as (e: Event) => void; // FIXME type error. why only here?
 
   const onTouchStart = () => {
+    cancelScheduledScroll && cancelScheduledScroll();
     touching = true;
     justTouchEnded = stillMomentumScrolling = false;
   };
@@ -144,6 +152,11 @@ const createScrollObserver = (
   viewport.addEventListener("wheel", onWheel, { passive: true });
   viewport.addEventListener("touchstart", onTouchStart, { passive: true });
   viewport.addEventListener("touchend", onTouchEnd, { passive: true });
+  // A press on the scrollbar starts a drag without any wheel or touch event.
+  const onMouseDown = () => {
+    cancelScheduledScroll && cancelScheduledScroll();
+  };
+  viewport.addEventListener("mousedown", onMouseDown, { passive: true });
 
   return {
     _dispose: () => {
@@ -151,6 +164,7 @@ const createScrollObserver = (
       viewport.removeEventListener("wheel", onWheel);
       viewport.removeEventListener("touchstart", onTouchStart);
       viewport.removeEventListener("touchend", onTouchEnd);
+      viewport.removeEventListener("mousedown", onMouseDown);
       onScrollEnd._cancel();
     },
     _fixScrollJump: () => {
@@ -355,7 +369,9 @@ export const createScroller = (
             // https://github.com/inokawa/virtua/issues/357
             cancelScroll();
           }
-        }
+        },
+        undefined,
+        cancelScroll
       );
 
       initialized[1](true);
@@ -428,7 +444,7 @@ export const createWindowScroller = (
   let isNegative = false;
   const scrollToKey = isHorizontal ? "left" : "top";
 
-  const [scheduleScroll] = createScrollScheduler(
+  const [scheduleScroll, cancelScroll] = createScrollScheduler(
     store,
     () => initialized[0],
     (offset, smooth) => {
@@ -515,7 +531,8 @@ export const createWindowScroller = (
           }
         },
         () =>
-          calcOffsetToViewport(container, document.body, window, isHorizontal)
+          calcOffsetToViewport(container, document.body, window, isHorizontal),
+        cancelScroll
       );
 
       initialized[1](true);

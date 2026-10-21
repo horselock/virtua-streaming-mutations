@@ -53,6 +53,18 @@ const normalizeScrollOffset = (offset: number, isNegative: boolean): number => {
   return isNegative ? -offset : offset;
 };
 
+const SCROLL_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+  " ",
+]);
+
 const createScrollObserver = (
   store: VirtualStore,
   viewport: HTMLElement | Window,
@@ -64,7 +76,7 @@ const createScrollObserver = (
     isMomentumScrolling: boolean
   ) => void,
   getStartOffset?: () => number,
-  // A scroll the user starts takes over from a scheduled one. Without this, a scheduled scroll
+  // A scroll the user starts (wheel, touch, press, scrolling key) takes over from a scheduled one. Without this, a scheduled scroll
   // re-applies its target on every item resize until 150ms pass without one, so while items keep
   // growing (a streamed message) it pulls the user back to its target for as long as they grow.
   cancelScheduledScroll?: () => void
@@ -152,11 +164,18 @@ const createScrollObserver = (
   viewport.addEventListener("wheel", onWheel, { passive: true });
   viewport.addEventListener("touchstart", onTouchStart, { passive: true });
   viewport.addEventListener("touchend", onTouchEnd, { passive: true });
-  // A press on the scrollbar starts a drag without any wheel or touch event.
+  // A press on the scrollbar starts a drag without any wheel or touch event, and keys scroll the
+  // viewport while focus is inside it.
   const onMouseDown = () => {
     cancelScheduledScroll && cancelScheduledScroll();
   };
+  const onKeyDown = (e: Event) => {
+    if (SCROLL_KEYS.has((e as KeyboardEvent).key)) {
+      cancelScheduledScroll && cancelScheduledScroll();
+    }
+  };
   viewport.addEventListener("mousedown", onMouseDown, { passive: true });
+  viewport.addEventListener("keydown", onKeyDown, { passive: true });
 
   return {
     _dispose: () => {
@@ -165,6 +184,7 @@ const createScrollObserver = (
       viewport.removeEventListener("touchstart", onTouchStart);
       viewport.removeEventListener("touchend", onTouchEnd);
       viewport.removeEventListener("mousedown", onMouseDown);
+      viewport.removeEventListener("keydown", onKeyDown);
       onScrollEnd._cancel();
     },
     _fixScrollJump: () => {

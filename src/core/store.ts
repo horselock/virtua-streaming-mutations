@@ -20,6 +20,8 @@ import type {
 import { abs, max, min, NULL } from "./utils.js";
 
 const MAX_INT_32 = 0x7fffffff;
+// Subpixel scroll offsets and rounding leave the end a fraction of a pixel away.
+const AT_END_TOLERANCE = 2;
 
 const SCROLL_IDLE = 0;
 const SCROLL_DOWN = 1;
@@ -53,6 +55,8 @@ export const ACTION_START_OFFSET_CHANGE = 6;
 export const ACTION_MANUAL_SCROLL = 7;
 /** @internal */
 export const ACTION_BEFORE_MANUAL_SMOOTH_SCROLL = 8;
+/** @internal */
+export const ACTION_FOLLOW_END_CHANGE = 9;
 
 type Actions =
   | [type: typeof ACTION_SCROLL, offset: number]
@@ -65,7 +69,8 @@ type Actions =
     ]
   | [type: typeof ACTION_START_OFFSET_CHANGE, offset: number]
   | [type: typeof ACTION_MANUAL_SCROLL, dummy?: void]
-  | [type: typeof ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, offset: number];
+  | [type: typeof ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, offset: number]
+  | [type: typeof ACTION_FOLLOW_END_CHANGE, followEnd: boolean];
 
 /** @internal */
 export const UPDATE_VIRTUAL_STATE = 0b0001;
@@ -104,6 +109,7 @@ export type VirtualStore = {
   $getItemsLength(): number;
   $getScrollOffset(): number;
   $isScrolling(): boolean;
+  $isFollowingEnd(): boolean;
   $getViewportSize(): number;
   $getStartSpacerSize(): number;
   $getTotalSize(): number;
@@ -136,6 +142,9 @@ export const createVirtualStore = (
   let _prevRange: ItemsRange = [0, isSSR ? max(ssrCount - 1, 0) : -1];
   let _totalMeasuredSize = 0;
   let _isViewportMeasured = false;
+  let _followEnd = false;
+  // Whether the last scroll that was not our own jump left the viewport at the end of the items.
+  let _atEnd = false;
 
   const cache = initCache(
     elementsCount,
@@ -151,6 +160,7 @@ export const createVirtualStore = (
     return computeRange(cache, startOffset, endOffset, _prevRange[0]);
   };
   const getTotalSize = (): number => _getItemOffset(cache, cache._length);
+  const isFollowingEnd = () => _followEnd && _atEnd;
   const getItemOffset = (index: number, fromEnd?: boolean): number => {
     const offset = _getItemOffset(cache, index) - pendingJump;
     if (fromEnd) {
@@ -237,6 +247,7 @@ export const createVirtualStore = (
     $getItemsLength: () => cache._length,
     $getScrollOffset: () => scrollOffset,
     $isScrolling: () => _scrollDirection !== SCROLL_IDLE,
+    $isFollowingEnd: isFollowingEnd,
     $getViewportSize: () => viewportSize,
     $getStartSpacerSize: () => startSpacerSize,
     $getTotalSize: getTotalSize,
@@ -303,6 +314,14 @@ export const createVirtualStore = (
           scrollOffset = payload;
           mutated = UPDATE_SCROLL_EVENT;
 
+          // Our jumps while following only move down, so a move up is never one of them. A shrink
+          // clamp moves up too, but it leaves the viewport at the end.
+          if (!isJustJumped || delta < 0) {
+            _atEnd =
+              getTotalSize() - getRelativeScrollOffset() - viewportSize <=
+              AT_END_TOLERANCE;
+          }
+
           // Skip if offset is not changed
           // Scroll offset may exceed min or max especially in Safari's elastic scrolling.
           const relativeOffset = getRelativeScrollOffset();
@@ -342,8 +361,9 @@ export const createVirtualStore = (
           applyJump(
             updated.reduce((acc, [index, size]) => {
               if (
-                // Keep distance from end during shifting
+                // Keep distance from end during shifting, and while following it
                 _scrollMode === SCROLL_BY_SHIFT ||
+                isFollowingEnd() ||
                 (_frozenRange && _scrollMode === SCROLL_BY_MANUAL_SCROLL
                   ? // https://github.com/inokawa/virtua/issues/380
                     // https://github.com/inokawa/virtua/issues/758
@@ -402,6 +422,8 @@ export const createVirtualStore = (
           if (viewportSize !== payload) {
             if (!viewportSize) {
               _isViewportMeasured = shouldSync = true;
+            } else if (isFollowingEnd() && payload < viewportSize) {
+              applyJump(viewportSize - payload);
             }
             viewportSize = payload;
             mutated = UPDATE_VIRTUAL_STATE + UPDATE_SIZE_EVENT;
@@ -414,7 +436,11 @@ export const createVirtualStore = (
             _scrollMode = SCROLL_BY_SHIFT;
             mutated = UPDATE_VIRTUAL_STATE;
           } else {
+            const prevTotalSize = getTotalSize();
             updateCacheLength(cache, payload[0]);
+            if (isFollowingEnd()) {
+              applyJump(max(0, getTotalSize() - prevTotalSize));
+            }
             // https://github.com/inokawa/virtua/issues/552
             // https://github.com/inokawa/virtua/issues/557
             mutated = UPDATE_VIRTUAL_STATE;
@@ -427,6 +453,10 @@ export const createVirtualStore = (
         }
         case ACTION_MANUAL_SCROLL: {
           _scrollMode = SCROLL_BY_MANUAL_SCROLL;
+          break;
+        }
+        case ACTION_FOLLOW_END_CHANGE: {
+          _followEnd = payload;
           break;
         }
         case ACTION_BEFORE_MANUAL_SMOOTH_SCROLL: {

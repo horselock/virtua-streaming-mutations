@@ -1,6 +1,7 @@
 <script lang="ts" generics="T">
   import { onMount, onDestroy, tick } from "svelte";
   import {
+    ACTION_FOLLOW_END_CHANGE,
     ACTION_ITEMS_LENGTH_CHANGE,
     ACTION_START_OFFSET_CHANGE,
     type StateVersion,
@@ -33,6 +34,7 @@
     bufferSize,
     itemSize,
     shift = false,
+    followEnd = false,
     horizontal = false,
     keepMounted,
     cache,
@@ -160,6 +162,10 @@
   });
 
   $effect.pre(() => {
+    store.$update(ACTION_FOLLOW_END_CHANGE, followEnd);
+  });
+
+  $effect.pre(() => {
     if (startMargin !== store.$getStartSpacerSize()) {
       store.$update(ACTION_START_OFFSET_CHANGE, startMargin);
     }
@@ -172,6 +178,8 @@
     scroller.$fixScrollJump();
   });
 
+  export const isFollowingEnd =
+    store.$isFollowingEnd satisfies VirtualizerHandle["isFollowingEnd"] as VirtualizerHandle["isFollowingEnd"];
   export const getCache =
     store.$getCacheSnapshot satisfies VirtualizerHandle["getCache"] as VirtualizerHandle["getCache"];
   export const getScrollOffset =

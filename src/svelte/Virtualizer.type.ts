@@ -60,6 +60,11 @@ export interface VirtualizerProps<T> {
    */
   shift?: boolean;
   /**
+   * While true, a viewport left at the end of the items stays there as items grow or are added, and
+   * the viewport shrinks. Any scroll away from the end stops following; scrolling back to it resumes.
+   */
+  followEnd?: boolean;
+  /**
    * If true, rendered as a horizontally scrollable list. Otherwise rendered as a vertically scrollable list.
    */
   horizontal?: boolean;
@@ -92,6 +97,10 @@ export interface VirtualizerProps<T> {
  * Methods of {@link Virtualizer}.
  */
 export interface VirtualizerHandle {
+  /**
+   * Whether `followEnd` is on and the viewport is at the end, so growth keeps it there.
+   */
+  isFollowingEnd: () => boolean;
   /**
    * Get current {@link CacheSnapshot}.
    */

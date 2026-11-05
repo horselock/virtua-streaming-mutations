@@ -17,6 +17,7 @@ export interface VListProps<T>
       | "bufferSize"
       | "itemSize"
       | "shift"
+      | "followEnd"
       | "horizontal"
       | "children"
       | "onscroll"

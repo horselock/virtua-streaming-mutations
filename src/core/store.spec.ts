@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+	ACTION_FOLLOW_END_CHANGE,
+	ACTION_ITEM_RESIZE,
 	ACTION_ITEMS_LENGTH_CHANGE,
+	ACTION_SCROLL,
 	ACTION_VIEWPORT_RESIZE,
 	createVirtualStore,
 } from "./store.js";
@@ -24,6 +27,74 @@ describe("createVirtualStore", () => {
 			// $getRange should return a valid range, not [-1, -1]
 			const range = store.$getRange();
 			expect(range[0]).toBeGreaterThanOrEqual(0);
+		});
+	});
+
+	describe("followEnd", () => {
+		// Ten 100px items in a 500px viewport, scrolled to the end at 500.
+		const atEnd = (followEnd = true) => {
+			const store = createVirtualStore(10, 100);
+			store.$update(ACTION_FOLLOW_END_CHANGE, followEnd);
+			store.$update(ACTION_VIEWPORT_RESIZE, 500);
+			store.$update(ACTION_SCROLL, 500);
+			return store;
+		};
+		// The scroller applies the store's jump to scrollTop, which comes back as a scroll event.
+		const applyJump = (store: ReturnType<typeof atEnd>) => {
+			const [jump] = store._flushJump();
+			if (jump) store.$update(ACTION_SCROLL, store.$getScrollOffset() + jump);
+			return jump;
+		};
+
+		it("keeps the viewport at the end while the last item grows", () => {
+			const store = atEnd();
+			expect(store.$isFollowingEnd()).toBe(true);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			expect(applyJump(store)).toBe(60);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 230]]);
+			expect(applyJump(store)).toBe(70);
+			expect(store.$getScrollOffset()).toBe(630);
+			expect(store.$isFollowingEnd()).toBe(true);
+		});
+
+		it("follows items added at the end", () => {
+			const store = atEnd();
+			store.$update(ACTION_ITEMS_LENGTH_CHANGE, [12, false]);
+			expect(applyJump(store)).toBe(200);
+			expect(store.$isFollowingEnd()).toBe(true);
+		});
+
+		it("stops following once the viewport is scrolled up, and resumes at the end", () => {
+			const store = atEnd();
+			store.$update(ACTION_SCROLL, 497);
+			expect(store.$isFollowingEnd()).toBe(false);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			expect(applyJump(store)).toBe(0);
+
+			store.$update(ACTION_SCROLL, 560);
+			expect(store.$isFollowingEnd()).toBe(true);
+		});
+
+		it("treats a scroll up that lands on a just-applied jump as the person's", () => {
+			const store = atEnd();
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			// The jump was flushed, but the person's scroll up arrived instead of its echo.
+			store._flushJump();
+			store.$update(ACTION_SCROLL, 480);
+			expect(store.$isFollowingEnd()).toBe(false);
+		});
+
+		it("keeps the end in view when the viewport shrinks", () => {
+			const store = atEnd();
+			store.$update(ACTION_VIEWPORT_RESIZE, 300);
+			expect(applyJump(store)).toBe(200);
+		});
+
+		it("does nothing unless enabled", () => {
+			const store = atEnd(false);
+			expect(store.$isFollowingEnd()).toBe(false);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			expect(applyJump(store)).toBe(0);
 		});
 	});
 });

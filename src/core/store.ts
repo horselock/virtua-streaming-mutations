@@ -27,9 +27,7 @@ const SCROLL_IDLE = 0;
 const SCROLL_DOWN = 1;
 const SCROLL_UP = 2;
 type ScrollDirection =
-  | typeof SCROLL_IDLE
-  | typeof SCROLL_DOWN
-  | typeof SCROLL_UP;
+  typeof SCROLL_IDLE | typeof SCROLL_DOWN | typeof SCROLL_UP;
 
 const SCROLL_BY_NATIVE = 0;
 const SCROLL_BY_MANUAL_SCROLL = 1;
@@ -59,6 +57,8 @@ export const ACTION_BEFORE_MANUAL_SMOOTH_SCROLL = 8;
 export const ACTION_FOLLOW_END_CHANGE = 9;
 /** @internal */
 export const ACTION_FOLLOW_END_THRESHOLD_CHANGE = 10;
+/** @internal */
+export const ACTION_RELEASE_END = 11;
 
 type Actions =
   | [type: typeof ACTION_SCROLL, offset: number]
@@ -67,13 +67,14 @@ type Actions =
   | [type: typeof ACTION_VIEWPORT_RESIZE, size: number]
   | [
       type: typeof ACTION_ITEMS_LENGTH_CHANGE,
-      arg: [length: number, isShift?: boolean | undefined]
+      arg: [length: number, isShift?: boolean | undefined],
     ]
   | [type: typeof ACTION_START_OFFSET_CHANGE, offset: number]
   | [type: typeof ACTION_MANUAL_SCROLL, dummy?: void]
   | [type: typeof ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, offset: number]
   | [type: typeof ACTION_FOLLOW_END_CHANGE, followEnd: boolean]
-  | [type: typeof ACTION_FOLLOW_END_THRESHOLD_CHANGE, threshold: number];
+  | [type: typeof ACTION_FOLLOW_END_THRESHOLD_CHANGE, threshold: number]
+  | [type: typeof ACTION_RELEASE_END, payload?: void];
 
 /** @internal */
 export const UPDATE_VIRTUAL_STATE = 0b0001;
@@ -95,7 +96,7 @@ type Subscriber = (sync?: boolean) => void;
 
 /** @internal */
 export type StateVersion =
-  number & {} /* hack for typescript to pretend as not falsy */;
+  number & {}; /* hack for typescript to pretend as not falsy */
 
 /**
  * @internal
@@ -130,7 +131,7 @@ export const createVirtualStore = (
   itemSize: number = 40,
   ssrCount: number = 0,
   cacheSnapshot?: CacheSnapshot | undefined,
-  shouldAutoEstimateItemSize: boolean = false
+  shouldAutoEstimateItemSize: boolean = false,
 ): VirtualStore => {
   let isSSR = !!ssrCount;
   let stateVersion: StateVersion = 1;
@@ -150,14 +151,16 @@ export const createVirtualStore = (
   let _followEndThreshold = 0;
   // Whether the viewport is at the end of the items, kept whether or not followEnd is on, so turning
   // it on never has to measure (a jump waiting for its scroll event would read as short of the end).
-  let _atEnd = true;
+  let _atEnd = false;
+  // Set by releaseEnd until the person's next scroll: the viewport can still sit at the end.
+  let _released = false;
 
   const cache = initCache(
     elementsCount,
     cacheSnapshot
       ? (cacheSnapshot as unknown as InternalCacheSnapshot)[1]
       : itemSize,
-    cacheSnapshot && (cacheSnapshot as unknown as InternalCacheSnapshot)[0]
+    cacheSnapshot && (cacheSnapshot as unknown as InternalCacheSnapshot)[0],
   );
   const subscribers = new Set<[number, Subscriber]>();
   const getRelativeScrollOffset = () => scrollOffset - startSpacerSize;
@@ -172,7 +175,8 @@ export const createVirtualStore = (
     getTotalSize() - getVisibleOffset() - _flushedJump - viewportSize;
   // Read before an update. Content that fits the viewport is at its end without ever scrolling.
   const readAtEnd = (): boolean =>
-    (_atEnd = _atEnd || getDistanceFromEnd() <= AT_END_TOLERANCE);
+    (_atEnd =
+      _atEnd || (!_released && getDistanceFromEnd() <= AT_END_TOLERANCE));
   // After an update: while following, aim at the end itself (content that still fits the viewport
   // needs no jump); otherwise growth may have moved the end away.
   const settleEnd = (wasAtEnd: boolean) => {
@@ -252,7 +256,7 @@ export const createVirtualStore = (
 
         [startIndex, endIndex] = _prevRange = getRange(
           max(0, startOffset),
-          max(0, endOffset)
+          max(0, endOffset),
         );
         if (_frozenRange) {
           startIndex = min(startIndex, _frozenRange[0]);
@@ -341,6 +345,7 @@ export const createVirtualStore = (
           // clamp moves up too, but it leaves the viewport at the end.
           const ownDelta = isJustJumped ? delta - flushedJump : delta;
           if (!isJustJumped || ownDelta < -1) {
+            _released = false;
             _atEnd =
               getDistanceFromEnd() <=
               (ownDelta > 0
@@ -375,7 +380,7 @@ export const createVirtualStore = (
         }
         case ACTION_ITEM_RESIZE: {
           const updated = payload.filter(
-            ([index, size]) => !isSizeEqual(index, size)
+            ([index, size]) => !isSizeEqual(index, size),
           );
 
           // Skip if all items are cached and not updated
@@ -397,12 +402,13 @@ export const createVirtualStore = (
                   : // Otherwise we should maintain visible position
                     // Only apply jump if item is COMPLETELY above viewport (not just its top)
                     // This prevents jump when a partially-visible item at bottom grows
-                    getItemOffset(index) + getItemSize(index) < getRelativeScrollOffset())
+                    getItemOffset(index) + getItemSize(index) <
+                    getRelativeScrollOffset())
               ) {
                 acc += size - getItemSize(index);
               }
               return acc;
-            }, 0)
+            }, 0),
           );
 
           // Update item sizes
@@ -427,8 +433,8 @@ export const createVirtualStore = (
             applyJump(
               estimateDefaultItemSize(
                 cache,
-                findIndex(cache, getVisibleOffset())
-              )
+                findIndex(cache, getVisibleOffset()),
+              ),
             );
             shouldAutoEstimateItemSize = false;
           }
@@ -490,6 +496,11 @@ export const createVirtualStore = (
         }
         case ACTION_FOLLOW_END_THRESHOLD_CHANGE: {
           _followEndThreshold = payload;
+          break;
+        }
+        case ACTION_RELEASE_END: {
+          _atEnd = false;
+          _released = true;
           break;
         }
         case ACTION_BEFORE_MANUAL_SMOOTH_SCROLL: {

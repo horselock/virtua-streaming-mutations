@@ -46,6 +46,8 @@
     ref.getItemSize(
       ...args
     )) satisfies VListHandle["getItemSize"] as VListHandle["getItemSize"];
+  export const releaseEnd = (() =>
+    ref.releaseEnd()) satisfies VListHandle["releaseEnd"] as VListHandle["releaseEnd"];
   export const scrollToIndex = ((...args) =>
     ref.scrollToIndex(
       ...args

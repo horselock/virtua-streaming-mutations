@@ -4,6 +4,7 @@
     ACTION_FOLLOW_END_CHANGE,
     ACTION_FOLLOW_END_THRESHOLD_CHANGE,
     ACTION_ITEMS_LENGTH_CHANGE,
+    ACTION_RELEASE_END,
     ACTION_START_OFFSET_CHANGE,
     type StateVersion,
     UPDATE_SCROLL_END_EVENT,
@@ -200,6 +201,8 @@
     store.$getItemOffset satisfies VirtualizerHandle["getItemOffset"] as VirtualizerHandle["getItemOffset"];
   export const getItemSize =
     store.$getItemSize satisfies VirtualizerHandle["getItemSize"] as VirtualizerHandle["getItemSize"];
+  export const releaseEnd = (() =>
+    store.$update(ACTION_RELEASE_END)) satisfies VirtualizerHandle["releaseEnd"] as VirtualizerHandle["releaseEnd"];
   export const scrollToIndex =
     scroller.$scrollToIndex satisfies VirtualizerHandle["scrollToIndex"] as VirtualizerHandle["scrollToIndex"];
   export const scrollTo =

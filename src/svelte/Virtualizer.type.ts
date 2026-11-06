@@ -135,6 +135,11 @@ export interface VirtualizerHandle {
    */
   getItemSize(index: number): number;
   /**
+   * Stop following the end, as a scroll away from it would, until the viewport is back there. For
+   * something about to grow at the end that should open downward.
+   */
+  releaseEnd(): void;
+  /**
    * Scroll to the item specified by index.
    * @param index index of item
    * @param opts options

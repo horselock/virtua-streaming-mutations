@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	ACTION_FOLLOW_END_CHANGE,
 	ACTION_FOLLOW_END_THRESHOLD_CHANGE,
+	ACTION_RELEASE_END,
 	ACTION_ITEM_RESIZE,
 	ACTION_BEFORE_MANUAL_SMOOTH_SCROLL,
 	ACTION_ITEMS_LENGTH_CHANGE,
@@ -175,6 +176,24 @@ describe("createVirtualStore", () => {
 			expect(store.$getItemOffset(5)).toBe(drawnAt);
 			store.$update(ACTION_SCROLL_END);
 			expect(store._flushJump()[0]).toBe(60);
+		});
+
+		it("lets growth at the end open downward once released", () => {
+			const store = atEnd();
+			store.$update(ACTION_RELEASE_END);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			expect(store._flushJump()[0]).toBe(0);
+			// Back at the end, it follows again.
+			store.$update(ACTION_SCROLL, 560);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 200]]);
+			expect(store._flushJump()[0]).toBe(40);
+		});
+
+		it("does not jump to the end for rows added before the viewport is measured", () => {
+			const store = createVirtualStore(10, 100);
+			store.$update(ACTION_FOLLOW_END_CHANGE, true);
+			store.$update(ACTION_ITEMS_LENGTH_CHANGE, [12, false]);
+			expect(store._flushJump()[0]).toBe(0);
 		});
 
 		it("does nothing unless enabled", () => {

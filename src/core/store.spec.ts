@@ -163,39 +163,18 @@ describe("createVirtualStore", () => {
 			expect(store.$isAtEnd()).toBe(false);
 		});
 
-		it("drops a held-back follow jump once the viewport leaves the end", () => {
+		it("keeps a held-back follow jump when the viewport leaves the end, since rows are drawn with it", () => {
 			const store = atEnd();
 			// A smooth scroll holds jumps back until it ends, as iOS does during any scroll.
 			store.$update(ACTION_MANUAL_SCROLL);
 			store.$update(ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, 300);
 			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			const drawnAt = store.$getItemOffset(5);
 			store.$update(ACTION_SCROLL, 300);
+			// Leaving the end does not move what is on screen.
+			expect(store.$getItemOffset(5)).toBe(drawnAt);
 			store.$update(ACTION_SCROLL_END);
-			expect(store._flushJump()[0]).toBe(0);
-		});
-
-		it("keeps the correction for a row above the viewport when a held-back follow jump is dropped", () => {
-			const store = atEnd();
-			store.$update(ACTION_MANUAL_SCROLL);
-			store.$update(ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, 300);
-			// Row 0 sits wholly above the viewport (at 500); its growth is a correction, not following.
-			store.$update(ACTION_ITEM_RESIZE, [[0, 150], [9, 160]]);
-			store.$update(ACTION_SCROLL, 300);
-			store.$update(ACTION_SCROLL_END);
-			expect(store._flushJump()[0]).toBe(50);
-		});
-
-		it("forgets a held-back follow jump that corrections cancelled out", () => {
-			const store = atEnd();
-			store.$update(ACTION_MANUAL_SCROLL);
-			store.$update(ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, 500);
-			// Row 0, above the viewport, shrinks by as much as the last row grows.
-			store.$update(ACTION_ITEM_RESIZE, [[0, 40], [9, 160]]);
-			store.$update(ACTION_SCROLL_END);
-			store._flushJump();
-			store.$update(ACTION_SCROLL, 300);
-			store.$update(ACTION_SCROLL_END);
-			expect(store._flushJump()[0]).toBe(0);
+			expect(store._flushJump()[0]).toBe(60);
 		});
 
 		it("does nothing unless enabled", () => {

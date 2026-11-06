@@ -151,8 +151,6 @@ export const createVirtualStore = (
   // Whether the viewport is at the end of the items, kept whether or not followEnd is on, so turning
   // it on never has to measure (a jump waiting for its scroll event would read as short of the end).
   let _atEnd = true;
-  // The part of pendingJump that is a follow jump, dropped if the viewport leaves the end first.
-  let _pendingFollowJump = 0;
 
   const cache = initCache(
     elementsCount,
@@ -180,7 +178,6 @@ export const createVirtualStore = (
   const settleEnd = (wasAtEnd: boolean) => {
     if (_followEnd && wasAtEnd) {
       const j = max(0, getDistanceFromEnd());
-      if (isJumpDeferred()) _pendingFollowJump += j;
       applyJump(j);
     } else {
       _atEnd = wasAtEnd && getDistanceFromEnd() <= AT_END_TOLERANCE;
@@ -200,16 +197,15 @@ export const createVirtualStore = (
     return cache._sizes[index] === value;
   };
 
-  const isJumpDeferred = () =>
-    // In iOS WebKit browsers, updating scroll position will stop scrolling so it have to be deferred during scrolling.
-    (isIOSWebKit() && _scrollDirection !== SCROLL_IDLE) ||
-    // Before imperative smooth scrolling, we measure all items which may be visible during scrolling.
-    // However, especially in Firefox, there are rare cases where items resize while scrolling, which can stop smooth scrolling.
-    (_frozenRange && _scrollMode === SCROLL_BY_MANUAL_SCROLL);
-
   const applyJump = (j: number) => {
     if (j) {
-      if (isJumpDeferred()) {
+      if (
+        // In iOS WebKit browsers, updating scroll position will stop scrolling so it have to be deferred during scrolling.
+        (isIOSWebKit() && _scrollDirection !== SCROLL_IDLE) ||
+        // Before imperative smooth scrolling, we measure all items which may be visible during scrolling.
+        // However, especially in Firefox, there are rare cases where items resize while scrolling, which can stop smooth scrolling.
+        (_frozenRange && _scrollMode === SCROLL_BY_MANUAL_SCROLL)
+      ) {
         pendingJump += j;
       } else {
         jump += j;
@@ -350,10 +346,6 @@ export const createVirtualStore = (
               (ownDelta > 0
                 ? max(_followEndThreshold, AT_END_TOLERANCE)
                 : AT_END_TOLERANCE);
-            if (!_atEnd && _pendingFollowJump) {
-              pendingJump -= _pendingFollowJump;
-              _pendingFollowJump = 0;
-            }
           }
 
           // Skip if offset is not changed
@@ -510,13 +502,9 @@ export const createVirtualStore = (
       if (mutated) {
         stateVersion = (stateVersion & MAX_INT_32) + 1;
 
-        if (shouldFlushPendingJump) {
-          // Corrections can cancel the follow part out, leaving nothing to flush.
-          _pendingFollowJump = 0;
-          if (pendingJump) {
-            jump += pendingJump;
-            pendingJump = 0;
-          }
+        if (shouldFlushPendingJump && pendingJump) {
+          jump += pendingJump;
+          pendingJump = 0;
         }
 
         subscribers.forEach(([target, cb]) => {

@@ -21,6 +21,16 @@ export interface VirtualizerProps<T> {
    */
   getKey?: (data: T, index: number) => string | number;
   /**
+   * Function that returns a content version/hash for an item. When this value changes, the item will re-render without remounting.
+   * This is useful for streaming content where the item object is mutated in place.
+   * @example (message) => message.content?.length || 0
+   */
+  getContentVersion?: (data: T, index: number) => any;
+  /**
+   * Optional trigger that causes getContentVersion to be re-evaluated when changed.
+   */
+  contentTrigger?: any;
+  /**
    * Component or element type for container element.
    * @defaultValue "div"
    */
@@ -60,6 +70,17 @@ export interface VirtualizerProps<T> {
    * **Do not set true in any other case, as it can cause unexpected behavior.**
    */
   shift?: boolean;
+  /**
+   * While true, a viewport left at the end of the items stays there as items grow or are added, and
+   * the viewport shrinks. Any scroll away from the end stops following; scrolling back to it resumes.
+   */
+  followEnd?: boolean;
+  /**
+   * How far short of the end, in pixels, a scroll down may stop and still resume `followEnd`. A smooth
+   * scroll (keys, wheel) picks its target when it starts, so it lands short of an end that grew
+   * meanwhile. A scroll up of more than 2px stops following. Defaults to 0.
+   */
+  followEndThreshold?: number;
   /**
    * If true, rendered as a horizontally scrollable list. Otherwise rendered as a vertically scrollable list.
    */
@@ -128,6 +149,11 @@ export interface VirtualizerHandle {
    * @param index index of item
    */
   getItemSize(index: number): number;
+  /**
+   * Stop following the end, as a scroll away from it would, until the viewport is back there. For
+   * something about to grow at the end that should open downward.
+   */
+  releaseEnd(): void;
   /**
    * Scroll to the item specified by index.
    * @param index index of item

@@ -202,6 +202,18 @@ const createResizeObserver = (
   };
 };
 
+const SCROLL_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+  " ",
+]);
+
 const createScrollObserver = (
   store: VirtualStore,
   layout: Layout,
@@ -284,9 +296,19 @@ const createScrollObserver = (
     scheduleScrollEnd();
   };
 
+  // A scroll the user starts (wheel, touch, press, scrolling key) takes over from a scheduled one. Without this, a scheduled scroll
+  // re-applies its target on every item resize until 150ms pass without one, so while items keep
+  // growing (a streamed message) it pulls the user back to its target for as long as they grow.
+  const takeOver = () => {
+    cancelScroll && cancelScroll();
+  };
+
   // Infer scroll state also from wheel events
   // Sometimes scroll events do not fire when frame dropped even if the visual have been already scrolled
   const onWheel = ((e: WheelEvent) => {
+    if (!e.ctrlKey) {
+      takeOver();
+    }
     if (
       // Scroll start should be detected with scroll event
       store.$isScrolling() &&
@@ -302,6 +324,7 @@ const createScrollObserver = (
   }) as (e: Event) => void; // FIXME type error. why only here?
 
   const onTouchStart = () => {
+    takeOver();
     touching = true;
     justTouchEnded = stillMomentumScrolling = false;
   };
@@ -317,6 +340,23 @@ const createScrollObserver = (
   viewport.addEventListener("touchstart", onTouchStart, { passive: true });
   viewport.addEventListener("touchend", onTouchEnd, { passive: true });
   viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
+  // A press on the scrollbar starts a drag without any wheel or touch event, and keys scroll the
+  // viewport while focus is inside it.
+  const onKeyDown = (e: Event) => {
+    const target = e.target;
+    // Keys typed into a field move its caret or value, not the viewport.
+    if (
+      target instanceof Element &&
+      target.closest("input, textarea, select, [contenteditable]")
+    ) {
+      return;
+    }
+    if (SCROLL_KEYS.has((e as KeyboardEvent).key)) {
+      takeOver();
+    }
+  };
+  viewport.addEventListener("mousedown", takeOver, { passive: true });
+  viewport.addEventListener("keydown", onKeyDown, { passive: true });
 
   return {
     _sync: () => {
@@ -338,6 +378,8 @@ const createScrollObserver = (
       viewport.removeEventListener("touchstart", onTouchStart);
       viewport.removeEventListener("touchend", onTouchEnd);
       viewport.removeEventListener("touchcancel", onTouchEnd);
+      viewport.removeEventListener("mousedown", takeOver);
+      viewport.removeEventListener("keydown", onKeyDown);
       cancelTimeout(scrollEndTimer);
     },
     _fixScrollJump: () => {

@@ -8,10 +8,14 @@
   let {
     data,
     getKey,
+    getContentVersion,
+    contentTrigger,
     bufferSize,
     itemSize,
     ssrCount,
     shift,
+    followEnd,
+    followEndThreshold,
     horizontal,
     keepMounted,
     cache,
@@ -45,6 +49,8 @@
     ref.getItemSize(
       ...args,
     )) satisfies VListHandle["getItemSize"] as VListHandle["getItemSize"];
+  export const releaseEnd = (() =>
+    ref.releaseEnd()) satisfies VListHandle["releaseEnd"] as VListHandle["releaseEnd"];
   export const scrollToIndex = ((...args) =>
     ref.scrollToIndex(
       ...args,
@@ -77,10 +83,14 @@
     {data}
     {children}
     {getKey}
+    {getContentVersion}
+    {contentTrigger}
     {bufferSize}
     {itemSize}
     {ssrCount}
     {shift}
+    {followEnd}
+    {followEndThreshold}
     {horizontal}
     {keepMounted}
     {cache}

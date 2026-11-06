@@ -1,7 +1,10 @@
 <script lang="ts" generics="T">
   import { onMount, onDestroy, tick } from "svelte";
   import {
+    ACTION_FOLLOW_END_CHANGE,
+    ACTION_FOLLOW_END_THRESHOLD_CHANGE,
     ACTION_ITEMS_LENGTH_CHANGE,
+    ACTION_RELEASE_END,
     ACTION_START_OFFSET_CHANGE,
     type ItemsRange,
     type StateVersion,
@@ -28,6 +31,8 @@
   let {
     data,
     getKey = defaultGetKey,
+    getContentVersion,
+    contentTrigger,
     as = "div",
     item: itemAs,
     itemProps,
@@ -36,6 +41,8 @@
     itemSize,
     ssrCount,
     shift = false,
+    followEnd = false,
+    followEndThreshold = 0,
     horizontal = false,
     keepMounted,
     cache,
@@ -109,6 +116,38 @@
     return arr;
   });
 
+  const contentVersions = new Map<number, any>();
+
+  let getItemWithVersion = $derived.by(() => {
+    if (!getContentVersion) {
+      return (index: number) => data[index]!;
+    }
+
+    contentTrigger;
+
+    const changedIndexes = new Set<number>();
+    for (const index of indexes) {
+      const item = data[index];
+      if (!item) continue;
+
+      const currentVersion = getContentVersion(item, index);
+      const prevVersion = contentVersions.get(index);
+
+      if (prevVersion !== undefined && prevVersion !== currentVersion) {
+        changedIndexes.add(index);
+      }
+      contentVersions.set(index, currentVersion);
+    }
+
+    return (index: number): T => {
+      const item = data[index]!;
+      if (changedIndexes.has(index)) {
+        return (Array.isArray(item) ? [...item] : { ...(item as object) }) as T;
+      }
+      return item;
+    };
+  });
+
   onMount(() => {
     isSSR = false;
 
@@ -129,8 +168,22 @@
     driver.$dispose();
   });
 
+  // Before the items effect, so rows added in the same update as turning followEnd on are followed.
+  $effect.pre(() => {
+    store.$update(ACTION_FOLLOW_END_CHANGE, followEnd);
+  });
+  $effect.pre(() => {
+    store.$update(ACTION_FOLLOW_END_THRESHOLD_CHANGE, followEndThreshold);
+  });
+
   $effect.pre(() => {
     store.$update(ACTION_ITEMS_LENGTH_CHANGE, data.length, shift);
+
+    for (const index of contentVersions.keys()) {
+      if (index >= data.length) {
+        contentVersions.delete(index);
+      }
+    }
   });
 
   $effect.pre(() => {
@@ -162,6 +215,10 @@
     store.$getItemOffset satisfies VirtualizerHandle["getItemOffset"] as VirtualizerHandle["getItemOffset"];
   export const getItemSize =
     layout.$getItemSize satisfies VirtualizerHandle["getItemSize"] as VirtualizerHandle["getItemSize"];
+  export const releaseEnd = (() =>
+    store.$update(
+      ACTION_RELEASE_END,
+    )) satisfies VirtualizerHandle["releaseEnd"] as VirtualizerHandle["releaseEnd"];
   export const scrollToIndex: VirtualizerHandle["scrollToIndex"] =
     driver.$scroll;
   export const scrollTo: VirtualizerHandle["scrollTo"] = (offset) =>
@@ -188,7 +245,7 @@
 -->
 <svelte:element this={as} bind:this={containerRef} style={containerStyle}>
   {#each indexes as index (getKey(data[index]!, index))}
-    {@const item = data[index]!}
+    {@const item = getItemWithVersion(index)}
     <ListItem
       {children}
       {item}

@@ -1,3 +1,27 @@
+# virtua (Spicy Writer fork)
+
+Upstream [virtua](https://github.com/inokawa/virtua) plus what Spicy Writer's story list needs. Tags are
+named after the upstream release they are based on, with our own counter: `v0.54.2-sw.1`.
+
+## What the fork adds (Svelte)
+
+- `followEnd`, `followEndThreshold` and the `releaseEnd()` handle: a viewport at the end of the items
+  stays there as they grow (`src/core/store.ts`).
+- A wheel, touch, press or scrolling key cancels a scheduled imperative scroll, which otherwise
+  re-applies its target on every resize of a growing item (`src/core/driver.ts`).
+- `getContentVersion` and `contentTrigger`, to re-render items mutated in place while streaming.
+- `prepare` builds only `core` and `svelte`, so installing from git stays quick.
+
+## Updating
+
+1. Change `src/`, run `npm test` and `npm run tsc`.
+2. Commit, push, and add a new tag (never move one).
+3. Point `frontend/package.json` at the tag and update the lockfile.
+
+To sync with upstream, start a branch from its release tag and carry these changes over.
+
+---
+
 # virtua
 
 ![npm](https://img.shields.io/npm/v/virtua) ![npm bundle size](https://img.shields.io/bundlephobia/minzip/virtua) ![npm](https://img.shields.io/npm/dw/virtua) [![Best of JS](https://img.shields.io/endpoint?url=https://bestofjs-serverless.now.sh/api/project-badge?fullName=inokawa%2Fvirtua%26since=daily)](https://bestofjs.org/projects/virtua) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/inokawa/virtua) [![check](https://github.com/inokawa/virtua/actions/workflows/check.yml/badge.svg)](https://github.com/inokawa/virtua/actions/workflows/check.yml) [![demo](https://github.com/inokawa/virtua/actions/workflows/demo.yml/badge.svg)](https://github.com/inokawa/virtua/actions/workflows/demo.yml)

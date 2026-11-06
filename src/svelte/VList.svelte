@@ -26,8 +26,6 @@
 
   let ref: Virtualizer<T> = $state()!;
 
-  export const isFollowingEnd = (() =>
-    ref.isFollowingEnd()) satisfies VListHandle["isFollowingEnd"] as VListHandle["isFollowingEnd"];
   export const isAtEnd = (() =>
     ref.isAtEnd()) satisfies VListHandle["isAtEnd"] as VListHandle["isAtEnd"];
   export const getCache = (() =>

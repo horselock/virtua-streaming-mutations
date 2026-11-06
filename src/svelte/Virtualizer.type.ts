@@ -104,10 +104,6 @@ export interface VirtualizerProps<T> {
  */
 export interface VirtualizerHandle {
   /**
-   * Whether `followEnd` is on and the viewport is at the end, so growth keeps it there.
-   */
-  isFollowingEnd: () => boolean;
-  /**
    * Whether the viewport is at the end of the items, whether or not `followEnd` is on.
    */
   isAtEnd: () => boolean;

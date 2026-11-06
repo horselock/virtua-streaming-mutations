@@ -184,8 +184,6 @@
     scroller.$fixScrollJump();
   });
 
-  export const isFollowingEnd =
-    store.$isFollowingEnd satisfies VirtualizerHandle["isFollowingEnd"] as VirtualizerHandle["isFollowingEnd"];
   export const isAtEnd =
     store.$isAtEnd satisfies VirtualizerHandle["isAtEnd"] as VirtualizerHandle["isAtEnd"];
   export const getCache =

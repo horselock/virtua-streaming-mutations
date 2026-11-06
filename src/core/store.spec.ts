@@ -174,6 +174,29 @@ describe("createVirtualStore", () => {
 			expect(store._flushJump()[0]).toBe(0);
 		});
 
+		it("keeps the correction for a row above the viewport when a held-back follow jump is dropped", () => {
+			const store = atEnd();
+			store.$update(ACTION_MANUAL_SCROLL);
+			store.$update(ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, 300);
+			// Row 0 sits wholly above the viewport (at 500); its growth is a correction, not following.
+			store.$update(ACTION_ITEM_RESIZE, [[0, 150], [9, 160]]);
+			store.$update(ACTION_SCROLL, 300);
+			store.$update(ACTION_SCROLL_END);
+			expect(store._flushJump()[0]).toBe(50);
+		});
+
+		it("credits two follow jumps landing in one scroll event to the list, not the person", () => {
+			const store = atEnd();
+			store.$update(ACTION_FOLLOW_END_THRESHOLD_CHANGE, 32);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			store._flushJump();
+			store.$update(ACTION_ITEM_RESIZE, [[9, 230]]);
+			store._flushJump();
+			// Both jumps (60 + 70) and the person's 20px up arrive as one scroll of 110px.
+			store.$update(ACTION_SCROLL, 610);
+			expect(store.$isFollowingEnd()).toBe(false);
+		});
+
 		it("does nothing unless enabled", () => {
 			const store = atEnd(false);
 			expect(store.$isFollowingEnd()).toBe(false);

@@ -169,8 +169,9 @@ export const createVirtualStore = (
   };
   const getTotalSize = (): number => _getItemOffset(cache, cache._length);
   const isFollowingEnd = () => _followEnd && _atEnd;
+  // A flushed jump has moved scrollTop already, though scrollOffset waits for its scroll event.
   const getDistanceFromEnd = () =>
-    getTotalSize() - getVisibleOffset() - viewportSize;
+    getTotalSize() - getVisibleOffset() - _flushedJump - viewportSize;
   // Read before an update. Content that fits the viewport is at its end without ever scrolling.
   const readAtEnd = (): boolean =>
     (_atEnd = _atEnd || getDistanceFromEnd() <= AT_END_TOLERANCE);
@@ -278,7 +279,8 @@ export const createVirtualStore = (
     $getStartSpacerSize: () => startSpacerSize,
     $getTotalSize: getTotalSize,
     _flushJump: () => {
-      _flushedJump = jump;
+      // Two flushes can land in one scroll event.
+      _flushedJump += jump;
       jump = 0;
       return [_flushedJump, _scrollMode === SCROLL_BY_SHIFT];
     },
@@ -391,12 +393,9 @@ export const createVirtualStore = (
           }
 
           const wasAtEnd = readAtEnd();
-          const following = _followEnd && wasAtEnd;
           // Calculate jump by resize to minimize junks in appearance
           applyJump(
             updated.reduce((acc, [index, size]) => {
-              // While following, the jump below aims at the end instead.
-              if (following) return acc;
               if (
                 // Keep distance from end during shifting
                 _scrollMode === SCROLL_BY_SHIFT ||

@@ -279,8 +279,7 @@ export const createVirtualStore = (
     $getStartSpacerSize: () => startSpacerSize,
     $getTotalSize: getTotalSize,
     _flushJump: () => {
-      // Two flushes can land in one scroll event.
-      _flushedJump += jump;
+      _flushedJump = jump;
       jump = 0;
       return [_flushedJump, _scrollMode === SCROLL_BY_SHIFT];
     },
@@ -511,10 +510,13 @@ export const createVirtualStore = (
       if (mutated) {
         stateVersion = (stateVersion & MAX_INT_32) + 1;
 
-        if (shouldFlushPendingJump && pendingJump) {
-          jump += pendingJump;
-          pendingJump = 0;
+        if (shouldFlushPendingJump) {
+          // Corrections can cancel the follow part out, leaving nothing to flush.
           _pendingFollowJump = 0;
+          if (pendingJump) {
+            jump += pendingJump;
+            pendingJump = 0;
+          }
         }
 
         subscribers.forEach(([target, cb]) => {

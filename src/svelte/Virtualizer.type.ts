@@ -67,7 +67,7 @@ export interface VirtualizerProps<T> {
   /**
    * How far short of the end, in pixels, a scroll down may stop and still resume `followEnd`. A smooth
    * scroll (keys, wheel) picks its target when it starts, so it lands short of an end that grew
-   * meanwhile. A scroll up always stops following. Defaults to 0.
+   * meanwhile. A scroll up of more than 2px stops following. Defaults to 0.
    */
   followEndThreshold?: number;
   /**
@@ -103,10 +103,6 @@ export interface VirtualizerProps<T> {
  * Methods of {@link Virtualizer}.
  */
 export interface VirtualizerHandle {
-  /**
-   * Whether the viewport is at the end of the items, whether or not `followEnd` is on.
-   */
-  isAtEnd: () => boolean;
   /**
    * Get current {@link CacheSnapshot}.
    */

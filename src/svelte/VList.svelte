@@ -26,8 +26,6 @@
 
   let ref: Virtualizer<T> = $state()!;
 
-  export const isAtEnd = (() =>
-    ref.isAtEnd()) satisfies VListHandle["isAtEnd"] as VListHandle["isAtEnd"];
   export const getCache = (() =>
     ref.getCache()) satisfies VListHandle["getCache"] as VListHandle["getCache"];
   export const getScrollOffset = (() =>

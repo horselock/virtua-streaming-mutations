@@ -108,6 +108,10 @@ export interface VirtualizerHandle {
    */
   isFollowingEnd: () => boolean;
   /**
+   * Whether the viewport is at the end of the items, whether or not `followEnd` is on.
+   */
+  isAtEnd: () => boolean;
+  /**
    * Get current {@link CacheSnapshot}.
    */
   getCache: () => CacheSnapshot;

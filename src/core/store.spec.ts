@@ -3,8 +3,11 @@ import {
 	ACTION_FOLLOW_END_CHANGE,
 	ACTION_FOLLOW_END_THRESHOLD_CHANGE,
 	ACTION_ITEM_RESIZE,
+	ACTION_BEFORE_MANUAL_SMOOTH_SCROLL,
 	ACTION_ITEMS_LENGTH_CHANGE,
+	ACTION_MANUAL_SCROLL,
 	ACTION_SCROLL,
+	ACTION_SCROLL_END,
 	ACTION_VIEWPORT_RESIZE,
 	createVirtualStore,
 } from "./store.js";
@@ -142,6 +145,33 @@ describe("createVirtualStore", () => {
 			// The 60px jump and the person's 20px up arrive as one scroll of 40px.
 			store.$update(ACTION_SCROLL, 540);
 			expect(store.$isFollowingEnd()).toBe(false);
+		});
+
+		it("turning following off and on again while a jump waits for its scroll keeps following", () => {
+			const store = atEnd();
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			store._flushJump();
+			store.$update(ACTION_FOLLOW_END_CHANGE, false);
+			store.$update(ACTION_FOLLOW_END_CHANGE, true);
+			expect(store.$isFollowingEnd()).toBe(true);
+		});
+
+		it("knows the end moved away while not following", () => {
+			const store = atEnd(false);
+			expect(store.$isAtEnd()).toBe(true);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			expect(store.$isAtEnd()).toBe(false);
+		});
+
+		it("drops a held-back follow jump once the viewport leaves the end", () => {
+			const store = atEnd();
+			// A smooth scroll holds jumps back until it ends, as iOS does during any scroll.
+			store.$update(ACTION_MANUAL_SCROLL);
+			store.$update(ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, 300);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			store.$update(ACTION_SCROLL, 300);
+			store.$update(ACTION_SCROLL_END);
+			expect(store._flushJump()[0]).toBe(0);
 		});
 
 		it("does nothing unless enabled", () => {

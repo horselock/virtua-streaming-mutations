@@ -113,6 +113,7 @@ export type VirtualStore = {
   $getScrollOffset(): number;
   $isScrolling(): boolean;
   $isFollowingEnd(): boolean;
+  $isAtEnd(): boolean;
   $getViewportSize(): number;
   $getStartSpacerSize(): number;
   $getTotalSize(): number;
@@ -147,8 +148,11 @@ export const createVirtualStore = (
   let _isViewportMeasured = false;
   let _followEnd = false;
   let _followEndThreshold = 0;
-  // Whether the last scroll that was not our own jump left the viewport at the end of the items.
-  let _atEnd = false;
+  // Whether the viewport is at the end of the items, kept whether or not followEnd is on, so turning
+  // it on never has to measure (a jump waiting for its scroll event would read as short of the end).
+  let _atEnd = true;
+  // The part of pendingJump that is a follow jump, dropped if the viewport leaves the end first.
+  let _pendingFollowJump = 0;
 
   const cache = initCache(
     elementsCount,
@@ -168,11 +172,19 @@ export const createVirtualStore = (
   const getDistanceFromEnd = () =>
     getTotalSize() - getVisibleOffset() - viewportSize;
   // Read before an update. Content that fits the viewport is at its end without ever scrolling.
-  const followsEnd = (): boolean =>
-    _followEnd &&
+  const readAtEnd = (): boolean =>
     (_atEnd = _atEnd || getDistanceFromEnd() <= AT_END_TOLERANCE);
-  // Aims at the end itself, so content that still fits the viewport needs no jump.
-  const applyFollowJump = () => applyJump(max(0, getDistanceFromEnd()));
+  // After an update: while following, aim at the end itself (content that still fits the viewport
+  // needs no jump); otherwise growth may have moved the end away.
+  const settleEnd = (wasAtEnd: boolean) => {
+    if (_followEnd && wasAtEnd) {
+      const j = max(0, getDistanceFromEnd());
+      if (isJumpDeferred()) _pendingFollowJump += j;
+      applyJump(j);
+    } else {
+      _atEnd = wasAtEnd && getDistanceFromEnd() <= AT_END_TOLERANCE;
+    }
+  };
   const getItemOffset = (index: number, fromEnd?: boolean): number => {
     const offset = _getItemOffset(cache, index) - pendingJump;
     if (fromEnd) {
@@ -187,15 +199,16 @@ export const createVirtualStore = (
     return cache._sizes[index] === value;
   };
 
+  const isJumpDeferred = () =>
+    // In iOS WebKit browsers, updating scroll position will stop scrolling so it have to be deferred during scrolling.
+    (isIOSWebKit() && _scrollDirection !== SCROLL_IDLE) ||
+    // Before imperative smooth scrolling, we measure all items which may be visible during scrolling.
+    // However, especially in Firefox, there are rare cases where items resize while scrolling, which can stop smooth scrolling.
+    (_frozenRange && _scrollMode === SCROLL_BY_MANUAL_SCROLL);
+
   const applyJump = (j: number) => {
     if (j) {
-      if (
-        // In iOS WebKit browsers, updating scroll position will stop scrolling so it have to be deferred during scrolling.
-        (isIOSWebKit() && _scrollDirection !== SCROLL_IDLE) ||
-        // Before imperative smooth scrolling, we measure all items which may be visible during scrolling.
-        // However, especially in Firefox, there are rare cases where items resize while scrolling, which can stop smooth scrolling.
-        (_frozenRange && _scrollMode === SCROLL_BY_MANUAL_SCROLL)
-      ) {
+      if (isJumpDeferred()) {
         pendingJump += j;
       } else {
         jump += j;
@@ -260,6 +273,7 @@ export const createVirtualStore = (
     $getScrollOffset: () => scrollOffset,
     $isScrolling: () => _scrollDirection !== SCROLL_IDLE,
     $isFollowingEnd: isFollowingEnd,
+    $isAtEnd: () => _atEnd,
     $getViewportSize: () => viewportSize,
     $getStartSpacerSize: () => startSpacerSize,
     $getTotalSize: getTotalSize,
@@ -335,6 +349,10 @@ export const createVirtualStore = (
               (ownDelta > 0
                 ? max(_followEndThreshold, AT_END_TOLERANCE)
                 : AT_END_TOLERANCE);
+            if (!_atEnd && _pendingFollowJump) {
+              pendingJump -= _pendingFollowJump;
+              _pendingFollowJump = 0;
+            }
           }
 
           // Skip if offset is not changed
@@ -372,7 +390,8 @@ export const createVirtualStore = (
             break;
           }
 
-          const following = followsEnd();
+          const wasAtEnd = readAtEnd();
+          const following = _followEnd && wasAtEnd;
           // Calculate jump by resize to minimize junks in appearance
           applyJump(
             updated.reduce((acc, [index, size]) => {
@@ -424,7 +443,7 @@ export const createVirtualStore = (
             shouldAutoEstimateItemSize = false;
           }
 
-          if (following) applyFollowJump();
+          settleEnd(wasAtEnd);
 
           mutated = UPDATE_VIRTUAL_STATE + UPDATE_SIZE_EVENT;
 
@@ -439,12 +458,15 @@ export const createVirtualStore = (
         }
         case ACTION_VIEWPORT_RESIZE: {
           if (viewportSize !== payload) {
-            const following = !!viewportSize && followsEnd();
             if (!viewportSize) {
               _isViewportMeasured = shouldSync = true;
+              viewportSize = payload;
+              _atEnd = getDistanceFromEnd() <= AT_END_TOLERANCE;
+            } else {
+              const wasAtEnd = readAtEnd();
+              viewportSize = payload;
+              settleEnd(wasAtEnd);
             }
-            viewportSize = payload;
-            if (following) applyFollowJump();
             mutated = UPDATE_VIRTUAL_STATE + UPDATE_SIZE_EVENT;
           }
           break;
@@ -455,9 +477,9 @@ export const createVirtualStore = (
             _scrollMode = SCROLL_BY_SHIFT;
             mutated = UPDATE_VIRTUAL_STATE;
           } else {
-            const following = followsEnd();
+            const wasAtEnd = readAtEnd();
             updateCacheLength(cache, payload[0]);
-            if (following) applyFollowJump();
+            settleEnd(wasAtEnd);
             // https://github.com/inokawa/virtua/issues/552
             // https://github.com/inokawa/virtua/issues/557
             mutated = UPDATE_VIRTUAL_STATE;
@@ -474,8 +496,6 @@ export const createVirtualStore = (
         }
         case ACTION_FOLLOW_END_CHANGE: {
           _followEnd = payload;
-          // Growth while not following moved the end away without a scroll event.
-          _atEnd = getDistanceFromEnd() <= AT_END_TOLERANCE;
           break;
         }
         case ACTION_FOLLOW_END_THRESHOLD_CHANGE: {
@@ -495,6 +515,7 @@ export const createVirtualStore = (
         if (shouldFlushPendingJump && pendingJump) {
           jump += pendingJump;
           pendingJump = 0;
+          _pendingFollowJump = 0;
         }
 
         subscribers.forEach(([target, cb]) => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	ACTION_FOLLOW_END_CHANGE,
+	ACTION_FOLLOW_END_THRESHOLD_CHANGE,
 	ACTION_ITEM_RESIZE,
 	ACTION_ITEMS_LENGTH_CHANGE,
 	ACTION_SCROLL,
@@ -75,8 +76,9 @@ describe("createVirtualStore", () => {
 			expect(store.$isFollowingEnd()).toBe(true);
 		});
 
-		it("follows a scroll down that lands within a line of an end that grew under it", () => {
+		it("follows a scroll down that lands within the threshold of an end that grew under it", () => {
 			const store = atEnd();
+			store.$update(ACTION_FOLLOW_END_THRESHOLD_CHANGE, 32);
 			store.$update(ACTION_SCROLL, 300);
 			store.$update(ACTION_ITEM_RESIZE, [[9, 120]]);
 			store.$update(ACTION_SCROLL, 500);
@@ -85,13 +87,15 @@ describe("createVirtualStore", () => {
 
 		it("does not follow a scroll down that stops further short", () => {
 			const store = atEnd();
+			store.$update(ACTION_FOLLOW_END_THRESHOLD_CHANGE, 32);
 			store.$update(ACTION_SCROLL, 300);
 			store.$update(ACTION_SCROLL, 460);
 			expect(store.$isFollowingEnd()).toBe(false);
 		});
 
-		it("stops following on a small scroll up from the end", () => {
+		it("stops following on a small scroll up from the end, whatever the threshold", () => {
 			const store = atEnd();
+			store.$update(ACTION_FOLLOW_END_THRESHOLD_CHANGE, 32);
 			store.$update(ACTION_SCROLL, 490);
 			expect(store.$isFollowingEnd()).toBe(false);
 		});

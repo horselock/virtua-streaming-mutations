@@ -22,9 +22,6 @@ import { abs, max, min, NULL } from "./utils.js";
 const MAX_INT_32 = 0x7fffffff;
 // Subpixel scroll offsets and rounding leave the end a fraction of a pixel away.
 const AT_END_TOLERANCE = 2;
-// A smooth scroll down (keys, wheel) picks its target when it starts, so it lands short of an end that
-// grew meanwhile: 5-11px short under a 20ms-chunk stream. About a line.
-const SCROLLED_TO_END_TOLERANCE = 32;
 
 const SCROLL_IDLE = 0;
 const SCROLL_DOWN = 1;
@@ -60,6 +57,8 @@ export const ACTION_MANUAL_SCROLL = 7;
 export const ACTION_BEFORE_MANUAL_SMOOTH_SCROLL = 8;
 /** @internal */
 export const ACTION_FOLLOW_END_CHANGE = 9;
+/** @internal */
+export const ACTION_FOLLOW_END_THRESHOLD_CHANGE = 10;
 
 type Actions =
   | [type: typeof ACTION_SCROLL, offset: number]
@@ -73,7 +72,8 @@ type Actions =
   | [type: typeof ACTION_START_OFFSET_CHANGE, offset: number]
   | [type: typeof ACTION_MANUAL_SCROLL, dummy?: void]
   | [type: typeof ACTION_BEFORE_MANUAL_SMOOTH_SCROLL, offset: number]
-  | [type: typeof ACTION_FOLLOW_END_CHANGE, followEnd: boolean];
+  | [type: typeof ACTION_FOLLOW_END_CHANGE, followEnd: boolean]
+  | [type: typeof ACTION_FOLLOW_END_THRESHOLD_CHANGE, threshold: number];
 
 /** @internal */
 export const UPDATE_VIRTUAL_STATE = 0b0001;
@@ -146,6 +146,7 @@ export const createVirtualStore = (
   let _totalMeasuredSize = 0;
   let _isViewportMeasured = false;
   let _followEnd = false;
+  let _followEndThreshold = 0;
   // Whether the last scroll that was not our own jump left the viewport at the end of the items.
   let _atEnd = false;
 
@@ -331,7 +332,9 @@ export const createVirtualStore = (
           if (!isJustJumped || ownDelta < -1) {
             _atEnd =
               getDistanceFromEnd() <=
-              (ownDelta > 0 ? SCROLLED_TO_END_TOLERANCE : AT_END_TOLERANCE);
+              (ownDelta > 0
+                ? max(_followEndThreshold, AT_END_TOLERANCE)
+                : AT_END_TOLERANCE);
           }
 
           // Skip if offset is not changed
@@ -473,6 +476,10 @@ export const createVirtualStore = (
           _followEnd = payload;
           // Growth while not following moved the end away without a scroll event.
           _atEnd = getDistanceFromEnd() <= AT_END_TOLERANCE;
+          break;
+        }
+        case ACTION_FOLLOW_END_THRESHOLD_CHANGE: {
+          _followEndThreshold = payload;
           break;
         }
         case ACTION_BEFORE_MANUAL_SMOOTH_SCROLL: {

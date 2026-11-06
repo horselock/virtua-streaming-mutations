@@ -14,6 +14,7 @@
     itemSize,
     shift,
     followEnd,
+    followEndThreshold,
     horizontal,
     keepMounted,
     cache,
@@ -85,6 +86,7 @@
     {itemSize}
     {shift}
     {followEnd}
+    {followEndThreshold}
     {horizontal}
     {keepMounted}
     {cache}

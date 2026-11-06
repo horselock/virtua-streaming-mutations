@@ -65,6 +65,12 @@ export interface VirtualizerProps<T> {
    */
   followEnd?: boolean;
   /**
+   * How far short of the end, in pixels, a scroll down may stop and still resume `followEnd`. A smooth
+   * scroll (keys, wheel) picks its target when it starts, so it lands short of an end that grew
+   * meanwhile. A scroll up always stops following. Defaults to 0.
+   */
+  followEndThreshold?: number;
+  /**
    * If true, rendered as a horizontally scrollable list. Otherwise rendered as a vertically scrollable list.
    */
   horizontal?: boolean;

@@ -18,6 +18,7 @@ export interface VListProps<T>
       | "itemSize"
       | "shift"
       | "followEnd"
+      | "followEndThreshold"
       | "horizontal"
       | "children"
       | "onscroll"

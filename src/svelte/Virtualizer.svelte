@@ -2,6 +2,7 @@
   import { onMount, onDestroy, tick } from "svelte";
   import {
     ACTION_FOLLOW_END_CHANGE,
+    ACTION_FOLLOW_END_THRESHOLD_CHANGE,
     ACTION_ITEMS_LENGTH_CHANGE,
     ACTION_START_OFFSET_CHANGE,
     type StateVersion,
@@ -35,6 +36,7 @@
     itemSize,
     shift = false,
     followEnd = false,
+    followEndThreshold = 0,
     horizontal = false,
     keepMounted,
     cache,
@@ -150,6 +152,9 @@
   // Before the items effect, so rows added in the same update as turning followEnd on are followed.
   $effect.pre(() => {
     store.$update(ACTION_FOLLOW_END_CHANGE, followEnd);
+  });
+  $effect.pre(() => {
+    store.$update(ACTION_FOLLOW_END_THRESHOLD_CHANGE, followEndThreshold);
   });
 
   $effect.pre(() => {

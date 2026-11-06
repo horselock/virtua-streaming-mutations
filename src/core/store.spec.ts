@@ -90,6 +90,26 @@ describe("createVirtualStore", () => {
 			expect(applyJump(store)).toBe(200);
 		});
 
+		it("follows content that fits the viewport once it grows past it, without a scroll", () => {
+			const store = createVirtualStore(2, 100);
+			store.$update(ACTION_FOLLOW_END_CHANGE, true);
+			store.$update(ACTION_VIEWPORT_RESIZE, 500);
+			store.$update(ACTION_ITEM_RESIZE, [[1, 300]]);
+			expect(applyJump(store)).toBe(0);
+			store.$update(ACTION_ITEM_RESIZE, [[1, 600]]);
+			expect(applyJump(store)).toBe(200);
+			expect(store.$isFollowingEnd()).toBe(true);
+		});
+
+		it("turning on reads where the viewport is now, not where it last scrolled to", () => {
+			const store = atEnd(false);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 900]]);
+			store.$update(ACTION_FOLLOW_END_CHANGE, true);
+			expect(store.$isFollowingEnd()).toBe(false);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 950]]);
+			expect(applyJump(store)).toBe(0);
+		});
+
 		it("does nothing unless enabled", () => {
 			const store = atEnd(false);
 			expect(store.$isFollowingEnd()).toBe(false);

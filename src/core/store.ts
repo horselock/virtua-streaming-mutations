@@ -161,6 +161,14 @@ export const createVirtualStore = (
   };
   const getTotalSize = (): number => _getItemOffset(cache, cache._length);
   const isFollowingEnd = () => _followEnd && _atEnd;
+  const getDistanceFromEnd = () =>
+    getTotalSize() - getVisibleOffset() - viewportSize;
+  // Read before an update. Content that fits the viewport is at its end without ever scrolling.
+  const followsEnd = (): boolean =>
+    _followEnd &&
+    (_atEnd = _atEnd || getDistanceFromEnd() <= AT_END_TOLERANCE);
+  // Aims at the end itself, so content that still fits the viewport needs no jump.
+  const applyFollowJump = () => applyJump(max(0, getDistanceFromEnd()));
   const getItemOffset = (index: number, fromEnd?: boolean): number => {
     const offset = _getItemOffset(cache, index) - pendingJump;
     if (fromEnd) {
@@ -317,9 +325,7 @@ export const createVirtualStore = (
           // Our jumps while following only move down, so a move up is never one of them. A shrink
           // clamp moves up too, but it leaves the viewport at the end.
           if (!isJustJumped || delta < 0) {
-            _atEnd =
-              getTotalSize() - getRelativeScrollOffset() - viewportSize <=
-              AT_END_TOLERANCE;
+            _atEnd = getDistanceFromEnd() <= AT_END_TOLERANCE;
           }
 
           // Skip if offset is not changed
@@ -357,13 +363,15 @@ export const createVirtualStore = (
             break;
           }
 
+          const following = followsEnd();
           // Calculate jump by resize to minimize junks in appearance
           applyJump(
             updated.reduce((acc, [index, size]) => {
+              // While following, the jump below aims at the end instead.
+              if (following) return acc;
               if (
-                // Keep distance from end during shifting, and while following it
+                // Keep distance from end during shifting
                 _scrollMode === SCROLL_BY_SHIFT ||
-                isFollowingEnd() ||
                 (_frozenRange && _scrollMode === SCROLL_BY_MANUAL_SCROLL
                   ? // https://github.com/inokawa/virtua/issues/380
                     // https://github.com/inokawa/virtua/issues/758
@@ -407,6 +415,8 @@ export const createVirtualStore = (
             shouldAutoEstimateItemSize = false;
           }
 
+          if (following) applyFollowJump();
+
           mutated = UPDATE_VIRTUAL_STATE + UPDATE_SIZE_EVENT;
 
           // Synchronous update is necessary in current design to minimize visible glitch in concurrent rendering.
@@ -420,12 +430,12 @@ export const createVirtualStore = (
         }
         case ACTION_VIEWPORT_RESIZE: {
           if (viewportSize !== payload) {
+            const following = !!viewportSize && followsEnd();
             if (!viewportSize) {
               _isViewportMeasured = shouldSync = true;
-            } else if (isFollowingEnd() && payload < viewportSize) {
-              applyJump(viewportSize - payload);
             }
             viewportSize = payload;
+            if (following) applyFollowJump();
             mutated = UPDATE_VIRTUAL_STATE + UPDATE_SIZE_EVENT;
           }
           break;
@@ -436,11 +446,9 @@ export const createVirtualStore = (
             _scrollMode = SCROLL_BY_SHIFT;
             mutated = UPDATE_VIRTUAL_STATE;
           } else {
-            const prevTotalSize = getTotalSize();
+            const following = followsEnd();
             updateCacheLength(cache, payload[0]);
-            if (isFollowingEnd()) {
-              applyJump(max(0, getTotalSize() - prevTotalSize));
-            }
+            if (following) applyFollowJump();
             // https://github.com/inokawa/virtua/issues/552
             // https://github.com/inokawa/virtua/issues/557
             mutated = UPDATE_VIRTUAL_STATE;
@@ -457,6 +465,8 @@ export const createVirtualStore = (
         }
         case ACTION_FOLLOW_END_CHANGE: {
           _followEnd = payload;
+          // Growth while not following moved the end away without a scroll event.
+          _atEnd = getDistanceFromEnd() <= AT_END_TOLERANCE;
           break;
         }
         case ACTION_BEFORE_MANUAL_SMOOTH_SCROLL: {

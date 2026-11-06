@@ -44,7 +44,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "prepare": "rimraf lib && vite build -c vite.build.config.ts -m core && vite build -c vite.build.config.ts -m svelte",
+    "prepare": "rimraf lib && vite build -c vite.fork.config.ts -m core && vite build -c vite.fork.config.ts -m svelte",
     "build": "rimraf lib && vite build -c vite.build.config.ts -m react && vite build -c vite.build.config.ts -m vue && vite build -c vite.build.config.ts -m solid && vite build -c vite.build.config.ts -m solid-ssr && vite build -c vite.build.config.ts -m core && vite build -c vite.build.config.ts -m svelte && vite build -c vite.build.config.ts -m angular && ngc -p tsconfig.angular.build.json && node scripts/copy-angular-dts.js",
     "tsc": "tsc -p . --noEmit",
     "test": "vitest run --project=unit --project=react --project=vue --project=solid --project=svelte --project=angular",

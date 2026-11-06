@@ -75,6 +75,27 @@ describe("createVirtualStore", () => {
 			expect(store.$isFollowingEnd()).toBe(true);
 		});
 
+		it("follows a scroll down that lands within a line of an end that grew under it", () => {
+			const store = atEnd();
+			store.$update(ACTION_SCROLL, 300);
+			store.$update(ACTION_ITEM_RESIZE, [[9, 120]]);
+			store.$update(ACTION_SCROLL, 500);
+			expect(store.$isFollowingEnd()).toBe(true);
+		});
+
+		it("does not follow a scroll down that stops further short", () => {
+			const store = atEnd();
+			store.$update(ACTION_SCROLL, 300);
+			store.$update(ACTION_SCROLL, 460);
+			expect(store.$isFollowingEnd()).toBe(false);
+		});
+
+		it("stops following on a small scroll up from the end", () => {
+			const store = atEnd();
+			store.$update(ACTION_SCROLL, 490);
+			expect(store.$isFollowingEnd()).toBe(false);
+		});
+
 		it("treats a scroll up that lands on a just-applied jump as the person's", () => {
 			const store = atEnd();
 			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);

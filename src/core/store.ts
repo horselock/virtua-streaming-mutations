@@ -22,6 +22,9 @@ import { abs, max, min, NULL } from "./utils.js";
 const MAX_INT_32 = 0x7fffffff;
 // Subpixel scroll offsets and rounding leave the end a fraction of a pixel away.
 const AT_END_TOLERANCE = 2;
+// A smooth scroll down (keys, wheel) picks its target when it starts, so it lands short of an end that
+// grew meanwhile: 5-11px short under a 20ms-chunk stream. About a line.
+const SCROLLED_TO_END_TOLERANCE = 32;
 
 const SCROLL_IDLE = 0;
 const SCROLL_DOWN = 1;
@@ -325,7 +328,9 @@ export const createVirtualStore = (
           // Our jumps while following only move down, so a move up is never one of them. A shrink
           // clamp moves up too, but it leaves the viewport at the end.
           if (!isJustJumped || delta < 0) {
-            _atEnd = getDistanceFromEnd() <= AT_END_TOLERANCE;
+            _atEnd =
+              getDistanceFromEnd() <=
+              (delta > 0 ? SCROLLED_TO_END_TOLERANCE : AT_END_TOLERANCE);
           }
 
           // Skip if offset is not changed

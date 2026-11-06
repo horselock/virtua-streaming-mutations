@@ -325,12 +325,13 @@ export const createVirtualStore = (
           scrollOffset = payload;
           mutated = UPDATE_SCROLL_EVENT;
 
-          // Our jumps while following only move down, so a move up is never one of them. A shrink
+          // A scroll that lands with our jump carries the person's own move on top of it. A shrink
           // clamp moves up too, but it leaves the viewport at the end.
-          if (!isJustJumped || delta < 0) {
+          const ownDelta = isJustJumped ? delta - flushedJump : delta;
+          if (!isJustJumped || ownDelta < -1) {
             _atEnd =
               getDistanceFromEnd() <=
-              (delta > 0 ? SCROLLED_TO_END_TOLERANCE : AT_END_TOLERANCE);
+              (ownDelta > 0 ? SCROLLED_TO_END_TOLERANCE : AT_END_TOLERANCE);
           }
 
           // Skip if offset is not changed

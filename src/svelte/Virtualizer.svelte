@@ -147,6 +147,11 @@
     scroller.$dispose();
   });
 
+  // Before the items effect, so rows added in the same update as turning followEnd on are followed.
+  $effect.pre(() => {
+    store.$update(ACTION_FOLLOW_END_CHANGE, followEnd);
+  });
+
   $effect.pre(() => {
     if (data.length !== store.$getItemsLength()) {
       store.$update(ACTION_ITEMS_LENGTH_CHANGE, [data.length, shift]);
@@ -159,10 +164,6 @@
         }
       }
     }
-  });
-
-  $effect.pre(() => {
-    store.$update(ACTION_FOLLOW_END_CHANGE, followEnd);
   });
 
   $effect.pre(() => {

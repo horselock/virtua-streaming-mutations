@@ -131,6 +131,15 @@ describe("createVirtualStore", () => {
 			expect(applyJump(store)).toBe(0);
 		});
 
+		it("stops following on a scroll up that lands in the same event as a follow jump", () => {
+			const store = atEnd();
+			store.$update(ACTION_ITEM_RESIZE, [[9, 160]]);
+			store._flushJump();
+			// The 60px jump and the person's 20px up arrive as one scroll of 40px.
+			store.$update(ACTION_SCROLL, 540);
+			expect(store.$isFollowingEnd()).toBe(false);
+		});
+
 		it("does nothing unless enabled", () => {
 			const store = atEnd(false);
 			expect(store.$isFollowingEnd()).toBe(false);
